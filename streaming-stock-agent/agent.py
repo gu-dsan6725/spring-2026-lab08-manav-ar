@@ -1,5 +1,3 @@
-"""Stock query agent using Strands and Yahoo Finance."""
-
 import logging
 import json
 from typing import Dict, Any, List
@@ -179,6 +177,83 @@ def _get_company_info(
         }
 
 
+def _compare_stocks(
+    symbol1: str,
+    symbol2: str
+) -> Dict[str, Any]:
+    """Compare two stocks side-by-side.
+
+    Args:
+        symbol1: First stock symbol (e.g., 'AAPL')
+        symbol2: Second stock symbol (e.g., 'MSFT')
+
+    Returns:
+        Dictionary with comparison data for both stocks
+    """
+    try:
+        stock1 = yf.Ticker(symbol1.upper())
+        info1 = stock1.info
+
+        stock2 = yf.Ticker(symbol2.upper())
+        info2 = stock2.info
+
+        def _format_market_cap(market_cap: int | None) -> str | None:
+            """Format market cap into human-readable string."""
+            if market_cap is None:
+                return None
+            if market_cap >= 1_000_000_000_000:
+                return f"{market_cap / 1_000_000_000_000:.1f}T"
+            if market_cap >= 1_000_000_000:
+                return f"{market_cap / 1_000_000_000:.1f}B"
+            if market_cap >= 1_000_000:
+                return f"{market_cap / 1_000_000:.1f}M"
+            return str(market_cap)
+
+        price1 = info1.get('currentPrice') or info1.get('regularMarketPrice')
+        price2 = info2.get('currentPrice') or info2.get('regularMarketPrice')
+
+        if price1 is None:
+            return {"error": f"Could not retrieve price for {symbol1}", "symbol": symbol1.upper()}
+        if price2 is None:
+            return {"error": f"Could not retrieve price for {symbol2}", "symbol": symbol2.upper()}
+
+        return {
+            "comparison": {
+                "symbol1": symbol1.upper(),
+                "symbol2": symbol2.upper(),
+                "stock1": {
+                    "symbol": symbol1.upper(),
+                    "current_price": round(price1, 2),
+                    "company_name": info1.get('longName', symbol1.upper()),
+                    "market_cap": _format_market_cap(info1.get('marketCap')),
+                    "sector": info1.get('sector'),
+                    "pe_ratio": round(info1['trailingPE'], 2) if info1.get('trailingPE') else None,
+                    "52_week_high": info1.get('fiftyTwoWeekHigh'),
+                    "52_week_low": info1.get('fiftyTwoWeekLow'),
+                    "dividend_yield": round(info1['dividendYield'] * 100, 2) if info1.get('dividendYield') else None,
+                },
+                "stock2": {
+                    "symbol": symbol2.upper(),
+                    "current_price": round(price2, 2),
+                    "company_name": info2.get('longName', symbol2.upper()),
+                    "market_cap": _format_market_cap(info2.get('marketCap')),
+                    "sector": info2.get('sector'),
+                    "pe_ratio": round(info2['trailingPE'], 2) if info2.get('trailingPE') else None,
+                    "52_week_high": info2.get('fiftyTwoWeekHigh'),
+                    "52_week_low": info2.get('fiftyTwoWeekLow'),
+                    "dividend_yield": round(info2['dividendYield'] * 100, 2) if info2.get('dividendYield') else None,
+                },
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error comparing stocks {symbol1} and {symbol2}: {e}")
+        return {
+            "error": str(e),
+            "symbols": [symbol1.upper(), symbol2.upper()]
+        }
+
+
 # Tool definitions for Strands agent
 STOCK_TOOLS = [
     {
@@ -230,6 +305,25 @@ STOCK_TOOLS = [
             "required": ["ticker"]
         },
         "function": _get_company_info
+    },
+    {
+        "name": "compare_stocks",
+        "description": "Compare two stocks side-by-side with key metrics including price, market cap, P/E ratio, and 52-week range. Use this when the user asks to compare two stocks, asks which stock is better, or wants a side-by-side analysis of two companies.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "symbol1": {
+                    "type": "string",
+                    "description": "First stock symbol to compare (e.g., AAPL)"
+                },
+                "symbol2": {
+                    "type": "string",
+                    "description": "Second stock symbol to compare (e.g., MSFT)"
+                }
+            },
+            "required": ["symbol1", "symbol2"]
+        },
+        "function": _compare_stocks
     }
 ]
 

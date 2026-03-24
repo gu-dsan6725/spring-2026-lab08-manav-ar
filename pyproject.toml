@@ -9,7 +9,7 @@ dependencies = [
     "claude-agent-sdk>=0.1.0",
     "strands-agents>=1.0.0",
     "strands-agents-tools>=0.1.0",
-    "litellm>=1.0.0",
+    "litellm @ git+https://github.com/BerriAI/litellm.git",
     "ipykernel>=6.29.5",
     "jupyter-client>=8.6.3",
     "python-dotenv>=1.0.0",
@@ -28,6 +28,9 @@ requires = [
     "hatchling",
 ]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/advanced_agentic_patterns"]
